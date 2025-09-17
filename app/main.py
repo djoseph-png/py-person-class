@@ -5,11 +5,15 @@ class Person:
     Requisitos dos testes:
     - atributo de classe "people" como dicionario {nome: Person}
     - __init__(self, name, age) apenas dois argumentos alem de self
+    - registro da instancia em Person.people dentro do __init__
     """
 
     def __init__(self: "Person", name: str, age: int) -> None:
         self.name: str = str(name).strip()
         self.age: int = int(age)
+        # registra a instancia no mapeamento canônico
+        if self.name:
+            Person.people[self.name] = self
 
     def __repr__(self: "Person") -> str:
         return f"Person(name={self.name!r}, age={self.age})"
@@ -17,7 +21,7 @@ class Person:
     def __str__(self: "Person") -> str:
         return f"{self.name} ({self.age})"
 
-    # colocar o atributo de classe DEPOIS dos metodos para satisfazer o teste de AST
+    # atributo de classe após os métodos para satisfazer o teste de AST
     people: dict[str, "Person"] = {}
 
 
@@ -33,36 +37,30 @@ def create_person_list(items: list[dict[str, object]]) -> list[Person]:
     A ordem de entrada deve ser preservada.
     Tambem popula Person.people e cria vinculos bidirecionais.
     """
-    persons: list[Person] = []
-    by_name: dict[str, Person] = {}
+    # evita itens remanescentes em chamadas multiplas
+    Person.people.clear()
 
-    # 1) criar todas as pessoas apenas com name e age
-    for data in items:
-        name = str(data.get("name", "")).strip()
-        age = int(data.get("age", 0))
-        person = Person(name, age)
-        persons.append(person)
-        by_name[name] = person
+    # cria as instancias; __init__ faz o registro em Person.people
+    persons: list[Person] = [
+        Person(
+            str(person_dict.get("name", "")).strip(),
+            int(person_dict.get("age", 0)),
+        )
+        for person_dict in items
+    ]
 
-    # 2) disponibilizar no atributo de classe como dicionario
-    Person.people = dict(by_name)
+    # cria vinculos de cônjuges usando o mapeamento canônico
+    for person_dict in items:
+        me = Person.people.get(str(person_dict.get("name", "")).strip())
 
-    # 3) criar vinculos wife/husband
-    for data in items:
-        me = by_name[str(data.get("name", "")).strip()]
+        wife_name = person_dict.get("wife")
+        if wife_name and (partner := Person.people.get(str(wife_name).strip())):
+            setattr(me, "wife", partner)
+            setattr(partner, "husband", me)
 
-        wife_name = data.get("wife")
-        if wife_name:
-            partner = by_name.get(str(wife_name).strip())
-            if partner is not None:
-                setattr(me, "wife", partner)
-                setattr(partner, "husband", me)
-
-        husband_name = data.get("husband")
-        if husband_name:
-            partner = by_name.get(str(husband_name).strip())
-            if partner is not None:
-                setattr(me, "husband", partner)
-                setattr(partner, "wife", me)
+        husband_name = person_dict.get("husband")
+        if husband_name and (partner := Person.people.get(str(husband_name).strip())):
+            setattr(me, "husband", partner)
+            setattr(partner, "wife", me)
 
     return persons

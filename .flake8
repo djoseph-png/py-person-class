@@ -4,3 +4,5 @@ exclude = .venv, venv, __pycache__, .pytest_cache
 inline-quotes = "
 multiline-quotes = "
 docstring-quotes = "
+per-file-ignores =
+    tests/*: ANN001, ANN201
